@@ -1,8 +1,6 @@
 package local
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"io/ioutil"
 	"os"
 	"path"
@@ -12,21 +10,20 @@ import (
 
 func resourceLocalFile() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceLocalFileCreate,
+		Create: resourceLocalFileCreateUpdate,
 		Read:   resourceLocalFileRead,
 		Delete: resourceLocalFileDelete,
+		Update: resourceLocalFileCreateUpdate,
 
 		Schema: map[string]*schema.Schema{
 			"content": {
 				Type:          schema.TypeString,
 				Optional:      true,
-				ForceNew:      true,
 				ConflictsWith: []string{"sensitive_content"},
 			},
 			"sensitive_content": {
 				Type:          schema.TypeString,
 				Optional:      true,
-				ForceNew:      true,
 				Sensitive:     true,
 				ConflictsWith: []string{"content"},
 			},
@@ -56,8 +53,7 @@ func resourceLocalFileRead(d *schema.ResourceData, _ interface{}) error {
 		return err
 	}
 
-	outputChecksum := sha1.Sum([]byte(outputContent))
-	if hex.EncodeToString(outputChecksum[:]) != d.Id() {
+	if string(outputContent) != resourceLocalFileContent(d) {
 		d.SetId("")
 		return nil
 	}
@@ -76,7 +72,7 @@ func resourceLocalFileContent(d *schema.ResourceData) string {
 	return useContent
 }
 
-func resourceLocalFileCreate(d *schema.ResourceData, _ interface{}) error {
+func resourceLocalFileCreateUpdate(d *schema.ResourceData, _ interface{}) error {
 	content := resourceLocalFileContent(d)
 	destination := d.Get("filename").(string)
 
@@ -91,8 +87,7 @@ func resourceLocalFileCreate(d *schema.ResourceData, _ interface{}) error {
 		return err
 	}
 
-	checksum := sha1.Sum([]byte(content))
-	d.SetId(hex.EncodeToString(checksum[:]))
+	d.SetId("-")
 
 	return nil
 }
